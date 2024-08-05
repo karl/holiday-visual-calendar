@@ -1,4 +1,7 @@
+import { addDays, format, getDay, isValid, parse } from "date-fns";
 import type { MetaFunction } from "@vercel/remix";
+import { useSearchParams } from "@remix-run/react";
+import { useMemo } from "react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -7,35 +10,268 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+type DayColor =
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "blue"
+  | "purple"
+  | "pink";
+
+type ColorInfo = {
+  background: string;
+  labelBackground: string;
+  border: string;
+};
+
+const colors: Record<DayColor, ColorInfo> = {
+  red: {
+    background: "bg-red-100",
+    labelBackground: "bg-red-600",
+    border: "border-red-600",
+  },
+  orange: {
+    background: "bg-orange-100",
+    labelBackground: "bg-orange-500",
+    border: "border-orange-500",
+  },
+  yellow: {
+    background: "bg-yellow-100",
+    labelBackground: "bg-yellow-500",
+    border: "border-yellow-500",
+  },
+  green: {
+    background: "bg-green-100",
+    labelBackground: "bg-green-600",
+    border: "border-green-600",
+  },
+  teal: {
+    background: "bg-teal-100",
+    labelBackground: "bg-teal-600",
+    border: "border-teal-600",
+  },
+  blue: {
+    background: "bg-blue-100",
+    labelBackground: "bg-blue-500",
+    border: "border-blue-500",
+  },
+  purple: {
+    background: "bg-purple-100",
+    labelBackground: "bg-purple-500",
+    border: "border-purple-500",
+  },
+  pink: {
+    background: "bg-pink-100",
+    labelBackground: "bg-pink-500",
+    border: "border-pink-500",
+  },
+};
+
+type Day = {
+  type?: "blank";
+  description?: string;
+  color?: DayColor;
+  image?: string;
+};
+
+const defaultStartDate = format(new Date(), 'yyyy-MM-dd');
+
+const defaultEvents = `Home, blue, https://tjh.com/wp-content/uploads/2023/06/TJH_HERO_TJH-HOME@2x-1-1536x1021.webp
+Holiday, orange, https://www.travelsupermarket.com/cdn-cgi/image/f=auto,width=495,height=500,fit=cover,quality=75/sonic/image/source/holiday-type/summer/holidaytype-summer.jpg`;
+
+const parseEvents = (events: string): Array<Day> => {
+  return events
+    .split("\n")
+    .map((event) => {
+      const [description, color, image] = event.split(", ");
+      return {
+        description,
+        color: color as DayColor,
+        image,
+      };
+    })
+    .filter((event) => event.description);
+};
+
 export default function Index() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const title = searchParams.get("title") || "Holiday Calendar";
+  const events = searchParams.get("events") || defaultEvents;
+  const start = searchParams.get("start") || defaultStartDate;
+  
+  let startDate = parse(start, 'yyyy-MM-dd', new Date());
+  if (!isValid(startDate)) {
+    startDate = parse(defaultStartDate, 'yyyy-MM-dd', new Date());
+  }
+
+
+  const days = useMemo(() => parseEvents(events), [events]);
+
+  // Add padding days to the beginning and end of the month
+  let dayOfWeekStart = getDay(startDate);
+  if (dayOfWeekStart === 0) {
+    dayOfWeekStart = 7;
+  }
+  const numPaddingDaysBeginning = dayOfWeekStart - 1;
+  let dayOfWeekEnd = getDay(addDays(startDate, days.length - 1));
+  if (dayOfWeekEnd === 0) {
+    dayOfWeekEnd = 7;
+  }
+  const numPaddingDaysEnding = 7 - dayOfWeekEnd;
+
+  const paddedDays = [...days];
+  paddedDays.unshift(
+    ...[...Array(numPaddingDaysBeginning)].map((): Day => ({ type: "blank" }))
+  );
+  paddedDays.push(
+    ...[...Array(numPaddingDaysEnding)].map((): Day => ({ type: "blank" }))
+  );
+
+  // split days into weeks
+  const weeks = [];
+  for (let i = 0; i < paddedDays.length; i += 7) {
+    weeks.push(paddedDays.slice(i, i + 7));
+  }
+
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-      <h1>Welcome to Remix</h1>
-      <ul>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/blog"
-            rel="noreferrer"
+    <>
+      <h1 className="m-6 text-5xl font-bold text-center text-gray-800 print:hidden">
+        {title}
+      </h1>
+      <div
+        className="flex flex-col gap-2 p-4"
+        style={{ WebkitPrintColorAdjust: "exact" }}
+      >
+        {weeks.map((week, weekIndex) => (
+          <div
+            key={weekIndex}
+            className="flex justify-center gap-2 break-inside-avoid-page"
           >
-            15m Quickstart Blog Tutorial
-          </a>
-        </li>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/jokes"
-            rel="noreferrer"
-          >
-            Deep Dive Jokes App Tutorial
-          </a>
-        </li>
-        <li>
-          <a target="_blank" href="https://remix.run/docs" rel="noreferrer">
-            Remix Docs
-          </a>
-        </li>
-      </ul>
-    </div>
+            {week.map((day, dayIndex) => {
+              if (day.type === "blank") {
+                return <div key={dayIndex} className="size-36" />;
+              }
+
+              const date = format(
+                addDays(
+                  startDate,
+                  weekIndex * 7 + dayIndex - numPaddingDaysBeginning
+                ),
+                "E do"
+              );
+              const color = day.color || "blue";
+              const colorInfo = colors[color];
+
+              return (
+                <div
+                  key={dayIndex}
+                  className={`size-36 rounded-md ${colorInfo.background} border-solid border-4 ${colorInfo.border} p-1 flex flex-col justify-between bg-cover bg-center`}
+                  style={{
+                    backgroundImage: `url(${day.image})`,
+                  }}
+                >
+                  <div>
+                    <p
+                      className="float-right px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
+                      style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
+                    >
+                      {date}
+                    </p>
+                  </div>
+                  <h2
+                    className={`text-sm font-bold text-white ${colorInfo.labelBackground} rounded-sm text-center px-1 size`}
+                  >
+                    {day.description}
+                  </h2>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <details className="p-4 print:hidden">
+        <summary className="p-2 bg-gray-100 border border-gray-500 border-solid rounded ">
+          Edit
+        </summary>
+
+        <div className="p-4 mt-2 bg-gray-100">
+          <div className="mb-4">
+            <label
+              htmlFor="title"
+              className="block mb-2 text-sm font-bold text-gray-700"
+            >
+              Title
+            </label>
+            <input
+              id="title"
+              type="text"
+              name="title"
+              className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+              value={title}
+              onChange={(event) => {
+                setSearchParams(
+                  (prev) => {
+                    prev.set("title", event.target.value);
+                    return prev;
+                  },
+                  { preventScrollReset: true }
+                );
+              }}
+            />
+          </div>
+
+          <div className="mb-4">
+            <label
+              htmlFor="startDate"
+              className="block mb-2 text-sm font-bold text-gray-700"
+            >
+              Start Date
+            </label>
+            <input
+              id="startDate"
+              type="text"
+              name="startDate"
+              className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+              value={start}
+              onChange={(event) => {
+                setSearchParams(
+                  (prev) => {
+                    prev.set("start", event.target.value);
+                    return prev;
+                  },
+                  { preventScrollReset: true }
+                );
+              }}
+            />
+          </div>
+
+          <div className="mb-4">
+            <label
+              htmlFor="events"
+              className="block mb-2 text-sm font-bold text-gray-700"
+            >
+              Events
+            </label>
+            <textarea
+              id="events"
+              name="events"
+              className="w-full px-3 py-2 text-gray-700 border rounded shadow appearance-none text-nowrap leading h-svh focus:outline-none focus:shadow-outline"
+              value={events}
+              onChange={(event) => {
+                setSearchParams(
+                  (prev) => {
+                    prev.set("events", event.target.value);
+                    return prev;
+                  },
+                  { preventScrollReset: true }
+                );
+              }}
+            />
+          </div>
+        </div>
+      </details>
+    </>
   );
 }
