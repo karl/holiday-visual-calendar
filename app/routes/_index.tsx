@@ -104,7 +104,7 @@ export const useSearchParamForInput = (
   defaultValue: string
 ): [string, (newValue: string) => void] => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const value = searchParams.get(key) || defaultValue;
+  const value = searchParams.get(key) ?? defaultValue;
 
   const [tempValue, setTempValue] = useState(value);
   const ignoreNextUpdateRef = useRef(false);
@@ -200,7 +200,7 @@ export default function Index() {
                 "E do"
               );
               const color = day.color || "blue";
-              const colorInfo = colors[color];
+              const colorInfo = colors[color] ?? colors.blue;
 
               return (
                 <div
