@@ -319,7 +319,7 @@ export const EditHolidayCalendar = ({
             {[...Array(events.split("\n").length)].map((_, i) => {
               const date = format(addDays(startDate, i), "E do");
               return (
-                <div key={i} className="pt-1 text-sm text-gray-500 leading">
+                <div key={i} className="pt-2 pb-1 text-sm text-gray-500 leading">
                   {date}
                 </div>
               );
@@ -328,7 +328,7 @@ export const EditHolidayCalendar = ({
           <textarea
             id="events"
             name="events"
-            className="w-full px-3 py-2 text-gray-700 border rounded shadow appearance-none text-nowrap leading focus:outline-none focus:shadow-outline"
+            className="w-full px-3 py-2 leading-loose text-gray-700 border rounded shadow appearance-none text-nowrap focus:outline-none focus:shadow-outline"
             // @ts-expect-error
             style={{ fieldSizing: "content" }}
             value={events}
