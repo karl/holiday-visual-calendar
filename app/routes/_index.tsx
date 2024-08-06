@@ -235,6 +235,7 @@ export default function Index() {
         </summary>
 
         <EditHolidayCalendar
+          startDate={startDate}
           title={title}
           onTitleChange={(newTitle) => setTitle(newTitle)}
           start={start}
@@ -248,6 +249,7 @@ export default function Index() {
 }
 
 type EditHolidayCalendarProps = {
+  startDate: Date;
   title: string;
   onTitleChange: (title: string) => void;
   start: string;
@@ -257,6 +259,7 @@ type EditHolidayCalendarProps = {
 };
 
 export const EditHolidayCalendar = ({
+  startDate,
   title,
   onTitleChange,
   start,
@@ -311,17 +314,29 @@ export const EditHolidayCalendar = ({
         >
           Events
         </label>
-        <textarea
-          id="events"
-          name="events"
-          className="w-full px-3 py-2 text-gray-700 border rounded shadow appearance-none text-nowrap leading focus:outline-none focus:shadow-outline"
-          // @ts-expect-error
-          style={{ fieldSizing: "content" }}
-          value={events}
-          onChange={(event) => {
-            onEventsChange(event.target.value);
-          }}
-        />
+        <div className="flex flex-row">
+          <div className="w-24 p-2 text-right">
+            {[...Array(events.split("\n").length)].map((_, i) => {
+              const date = format(addDays(startDate, i), "E do");
+              return (
+                <div key={i} className="pt-1 text-sm text-gray-500 leading">
+                  {date}
+                </div>
+              );
+            })}
+          </div>
+          <textarea
+            id="events"
+            name="events"
+            className="w-full px-3 py-2 text-gray-700 border rounded shadow appearance-none text-nowrap leading focus:outline-none focus:shadow-outline"
+            // @ts-expect-error
+            style={{ fieldSizing: "content" }}
+            value={events}
+            onChange={(event) => {
+              onEventsChange(event.target.value);
+            }}
+          />
+        </div>
       </div>
     </div>
   );
