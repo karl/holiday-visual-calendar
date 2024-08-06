@@ -1,7 +1,11 @@
-import { addDays, format, getDay, isValid, parse } from "date-fns";
+import { addDays, format, getDay, isValid, parse, set } from "date-fns";
 import type { MetaFunction } from "@vercel/remix";
 import { useSearchParams } from "@remix-run/react";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+export const shouldRevalidate = () => {
+  return false;
+};
 
 export const meta: MetaFunction = () => {
   return [
@@ -76,7 +80,7 @@ type Day = {
   image?: string;
 };
 
-const defaultStartDate = format(new Date(), 'yyyy-MM-dd');
+const defaultStartDate = format(new Date(), "yyyy-MM-dd");
 
 const defaultEvents = `Home, blue, https://tjh.com/wp-content/uploads/2023/06/TJH_HERO_TJH-HOME@2x-1-1536x1021.webp
 Holiday, orange, https://www.travelsupermarket.com/cdn-cgi/image/f=auto,width=495,height=500,fit=cover,quality=75/sonic/image/source/holiday-type/summer/holidaytype-summer.jpg`;
@@ -95,17 +99,51 @@ const parseEvents = (events: string): Array<Day> => {
     .filter((event) => event.description);
 };
 
-export default function Index() {
+export const useSearchParamForInput = (
+  key: string,
+  defaultValue: string
+): [string, (newValue: string) => void] => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const title = searchParams.get("title") || "Holiday Calendar";
-  const events = searchParams.get("events") || defaultEvents;
-  const start = searchParams.get("start") || defaultStartDate;
-  
-  let startDate = parse(start, 'yyyy-MM-dd', new Date());
-  if (!isValid(startDate)) {
-    startDate = parse(defaultStartDate, 'yyyy-MM-dd', new Date());
+  const value = searchParams.get(key) || defaultValue;
+
+  const [tempValue, setTempValue] = useState(value);
+  const ignoreNextUpdateRef = useRef(false);
+
+  if (value !== tempValue && !ignoreNextUpdateRef.current) {
+    setTempValue(value);
   }
 
+  useEffect(() => {
+    ignoreNextUpdateRef.current = false;
+  }, [value]);
+
+  const setValue = useCallback(
+    (newValue: string) => {
+      ignoreNextUpdateRef.current = true;
+      setTempValue(newValue);
+      setSearchParams(
+        (prev) => {
+          prev.set(key, newValue);
+          return prev;
+        },
+        { preventScrollReset: true }
+      );
+    },
+    [key, setSearchParams]
+  );
+
+  return [value, setValue];
+};
+
+export default function Index() {
+  const [title, setTitle] = useSearchParamForInput("title", "Holiday Calendar");
+  const [start, setStart] = useSearchParamForInput("start", defaultStartDate);
+  const [events, setEvents] = useSearchParamForInput("events", defaultEvents);
+
+  let startDate = parse(start, "yyyy-MM-dd", new Date());
+  if (!isValid(startDate)) {
+    startDate = parse(defaultStartDate, "yyyy-MM-dd", new Date());
+  }
 
   const days = useMemo(() => parseEvents(events), [events]);
 
@@ -192,86 +230,99 @@ export default function Index() {
         ))}
       </div>
       <details className="p-4 print:hidden">
-        <summary className="p-2 bg-gray-100 border border-gray-500 border-solid rounded ">
+        <summary className="p-2 bg-gray-100 border border-gray-500 border-solid rounded cursor-pointer">
           Edit
         </summary>
 
-        <div className="p-4 mt-2 bg-gray-100">
-          <div className="mb-4">
-            <label
-              htmlFor="title"
-              className="block mb-2 text-sm font-bold text-gray-700"
-            >
-              Title
-            </label>
-            <input
-              id="title"
-              type="text"
-              name="title"
-              className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-              value={title}
-              onChange={(event) => {
-                setSearchParams(
-                  (prev) => {
-                    prev.set("title", event.target.value);
-                    return prev;
-                  },
-                  { preventScrollReset: true }
-                );
-              }}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label
-              htmlFor="startDate"
-              className="block mb-2 text-sm font-bold text-gray-700"
-            >
-              Start Date
-            </label>
-            <input
-              id="startDate"
-              type="text"
-              name="startDate"
-              className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
-              value={start}
-              onChange={(event) => {
-                setSearchParams(
-                  (prev) => {
-                    prev.set("start", event.target.value);
-                    return prev;
-                  },
-                  { preventScrollReset: true }
-                );
-              }}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label
-              htmlFor="events"
-              className="block mb-2 text-sm font-bold text-gray-700"
-            >
-              Events
-            </label>
-            <textarea
-              id="events"
-              name="events"
-              className="w-full px-3 py-2 text-gray-700 border rounded shadow appearance-none text-nowrap leading h-svh focus:outline-none focus:shadow-outline"
-              value={events}
-              onChange={(event) => {
-                setSearchParams(
-                  (prev) => {
-                    prev.set("events", event.target.value);
-                    return prev;
-                  },
-                  { preventScrollReset: true }
-                );
-              }}
-            />
-          </div>
-        </div>
+        <EditHolidayCalendar
+          title={title}
+          onTitleChange={(newTitle) => setTitle(newTitle)}
+          start={start}
+          onStartChange={(newStart) => setStart(newStart)}
+          events={events}
+          onEventsChange={(newEvents) => setEvents(newEvents)}
+        />
       </details>
     </>
   );
 }
+
+type EditHolidayCalendarProps = {
+  title: string;
+  onTitleChange: (title: string) => void;
+  start: string;
+  onStartChange: (start: string) => void;
+  events: string;
+  onEventsChange: (events: string) => void;
+};
+
+export const EditHolidayCalendar = ({
+  title,
+  onTitleChange,
+  start,
+  onStartChange,
+  events,
+  onEventsChange,
+}: EditHolidayCalendarProps) => {
+  return (
+    <div className="p-4 mt-2 bg-gray-100">
+      <div className="mb-4">
+        <label
+          htmlFor="title"
+          className="block mb-2 text-sm font-bold text-gray-700"
+        >
+          Title
+        </label>
+        <input
+          id="title"
+          type="text"
+          name="title"
+          className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+          value={title}
+          onChange={(event) => {
+            onTitleChange(event.target.value);
+          }}
+        />
+      </div>
+
+      <div className="mb-4">
+        <label
+          htmlFor="startDate"
+          className="block mb-2 text-sm font-bold text-gray-700"
+        >
+          Start Date
+        </label>
+        <input
+          id="startDate"
+          type="text"
+          name="startDate"
+          className="w-full px-3 py-2 leading-tight text-gray-700 border rounded shadow appearance-none focus:outline-none focus:shadow-outline"
+          value={start}
+          onChange={(event) => {
+            onStartChange(event.target.value);
+          }}
+        />
+      </div>
+
+      <div className="mb-4">
+        <label
+          htmlFor="events"
+          className="block mb-2 text-sm font-bold text-gray-700"
+        >
+          Events
+        </label>
+        <textarea
+          id="events"
+          name="events"
+          className="w-full px-3 py-2 text-gray-700 border rounded shadow appearance-none text-nowrap leading focus:outline-none focus:shadow-outline"
+          // @ts-expect-error
+          style={{ fieldSizing: "content" }}
+          value={events}
+          onChange={(event) => {
+            onEventsChange(event.target.value);
+          }}
+        />
+      </div>
+    </div>
+  );
+};
