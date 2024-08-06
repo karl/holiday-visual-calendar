@@ -1,4 +1,4 @@
-import { addDays, format, getDay, isValid, parse, set } from "date-fns";
+import { addDays, format, getDay, isValid, parse } from "date-fns";
 import type { MetaFunction } from "@vercel/remix";
 import { useSearchParams } from "@remix-run/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -174,7 +174,7 @@ export default function Index() {
   }
 
   return (
-    <>
+    <div className="min-w-[1200px]">
       <h1 className="m-6 text-5xl font-bold text-center text-gray-800 print:hidden">
         {title}
       </h1>
@@ -244,7 +244,7 @@ export default function Index() {
           onEventsChange={(newEvents) => setEvents(newEvents)}
         />
       </details>
-    </>
+    </div>
   );
 }
 
