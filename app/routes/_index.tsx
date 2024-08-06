@@ -7,11 +7,11 @@ export const shouldRevalidate = () => {
   return false;
 };
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: "New Remix App" },
-    { name: "description", content: "Welcome to Remix!" },
-  ];
+export const meta: MetaFunction = ({ location }) => {
+  const title =
+    new URLSearchParams(location.search).get("title") ?? "Holiday Calendar";
+
+  return [{ title: title }];
 };
 
 type DayColor =
@@ -319,7 +319,10 @@ export const EditHolidayCalendar = ({
             {[...Array(events.split("\n").length)].map((_, i) => {
               const date = format(addDays(startDate, i), "E do");
               return (
-                <div key={i} className="pt-2 pb-1 text-sm text-gray-500 leading">
+                <div
+                  key={i}
+                  className="pt-2 pb-1 text-sm text-gray-500 leading"
+                >
                   {date}
                 </div>
               );
