@@ -192,7 +192,7 @@ export default function Index() {
           >
             {week.map((day, dayIndex) => {
               if (day.type === "blank") {
-                return <div key={dayIndex} className="size-36" />;
+                return <div key={dayIndex} className="size-40" />;
               }
 
               const date = format(
@@ -208,7 +208,7 @@ export default function Index() {
               return (
                 <div
                   key={dayIndex}
-                  className={`size-36 rounded-md ${colorInfo.background} border-solid border-4 ${colorInfo.border} p-1 flex flex-col justify-between bg-cover bg-center`}
+                  className={`size-40 rounded-md ${colorInfo.background} border-solid border-4 ${colorInfo.border} p-1 flex flex-col justify-between bg-cover bg-center`}
                   style={{
                     backgroundImage: `url(${day.image})`,
                   }}
