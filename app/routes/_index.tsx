@@ -75,6 +75,7 @@ const colors: Record<DayColor, ColorInfo> = {
 
 type Day = {
   type?: "blank";
+  name?: string;
   description?: string;
   color?: DayColor;
   image?: string;
@@ -82,18 +83,19 @@ type Day = {
 
 const defaultStartDate = format(new Date(), "yyyy-MM-dd");
 
-const defaultEvents = `Home, blue, https://tjh.com/wp-content/uploads/2023/06/TJH_HERO_TJH-HOME@2x-1-1536x1021.webp
-Holiday, orange, https://www.travelsupermarket.com/cdn-cgi/image/f=auto,width=495,height=500,fit=cover,quality=75/sonic/image/source/holiday-type/summer/holidaytype-summer.jpg`;
+const defaultEvents = `Home, blue, https://tjh.com/wp-content/uploads/2023/06/TJH_HERO_TJH-HOME@2x-1-1536x1021.webp, Daddy
+Holiday, orange, https://www.travelsupermarket.com/cdn-cgi/image/f=auto,width=495,height=500,fit=cover,quality=75/sonic/image/source/holiday-type/summer/holidaytype-summer.jpg, Mummy`;
 
 const parseEvents = (events: string): Array<Day> => {
   return events
     .split("\n")
     .map((event) => {
-      const [description, color, image] = event.split(", ");
+      const [description, color, image, name] = event.split(", ");
       return {
         description,
         color: color as DayColor,
         image,
+        name,
       };
     })
     .filter((event) => event.description);
@@ -211,6 +213,12 @@ export default function Index() {
                   }}
                 >
                   <div>
+                    <p
+                      className="float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
+                      style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
+                    >
+                      {day.name}
+                    </p>
                     <p
                       className="float-right px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
                       style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
