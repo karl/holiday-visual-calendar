@@ -1,7 +1,14 @@
 import { addDays, format, getDay, isValid, parse } from "date-fns";
 import type { MetaFunction } from "@vercel/remix";
 import { useSearchParams } from "@remix-run/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 export const shouldRevalidate = () => {
   return false;
@@ -138,6 +145,73 @@ export const useSearchParamForInput = (
   return [value, setValue];
 };
 
+export const EditableText = ({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (newValue: string) => void;
+  placeholder?: string;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const spanRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.select();
+    }
+  }, [isEditing]);
+
+  useLayoutEffect(() => {
+    if (textareaRef.current && spanRef.current) {
+      textareaRef.current.style.width = `${spanRef.current.getBoundingClientRect().width + 8}px`;
+      textareaRef.current.style.height = `${spanRef.current.getBoundingClientRect().height}px`;
+      textareaRef.current.style.textAlign = window.getComputedStyle(
+        spanRef.current
+      ).textAlign;
+    }
+  }, [value, isEditing]);
+
+  return (
+    <span className="relative inline-block">
+      <span
+        ref={spanRef}
+        onClick={() => {
+          setIsEditing(true);
+        }}
+        className={
+          "inline-block" +
+          (isEditing ? " whitespace-pre-wrap invisible" : "") +
+          (value === "" ? " text-gray-400" : "")
+        }
+      >
+        {value ? value : placeholder ?? "\u00A0\u00A0\u00A0\u00A0"}
+      </span>
+      {isEditing ? (
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+          }}
+          onBlur={() => {
+            setIsEditing(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              setIsEditing(false);
+            }
+          }}
+          autoFocus
+          className="inline-block absolute top-0 -left-1 pl-1 pr-1 bg-white bg-opacity-75 text-black overflow-hidden"
+        />
+      ) : undefined}
+    </span>
+  );
+};
+
 export default function Index() {
   const [title, setTitle] = useSearchParamForInput("title", "Holiday Calendar");
   const [start, setStart] = useSearchParamForInput("start", defaultStartDate);
@@ -179,7 +253,7 @@ export default function Index() {
   return (
     <div className="min-w-[1200px]">
       <h1 className="m-6 text-5xl font-bold text-center text-gray-800 print:hidden">
-        {title}
+        <EditableText value={title} onChange={setTitle} placeholder="Title" />
       </h1>
       <div
         className="flex flex-col gap-2 p-4"
@@ -194,6 +268,36 @@ export default function Index() {
               if (day.type === "blank") {
                 return <div key={dayIndex} className="size-40" />;
               }
+
+              const setName = (newName: string) => {
+                const newDays = [...days];
+                newDays[
+                  weekIndex * 7 + dayIndex - numPaddingDaysBeginning
+                ].name = newName;
+                setEvents(
+                  newDays
+                    .map(
+                      (day) =>
+                        `${day.description}, ${day.color}, ${day.name}, ${day.image}`
+                    )
+                    .join("\n")
+                );
+              };
+
+              const setDescription = (newDescription: string) => {
+                const newDays = [...days];
+                newDays[
+                  weekIndex * 7 + dayIndex - numPaddingDaysBeginning
+                ].description = newDescription;
+                setEvents(
+                  newDays
+                    .map(
+                      (day) =>
+                        `${day.description}, ${day.color}, ${day.name}, ${day.image}`
+                    )
+                    .join("\n")
+                );
+              };
 
               const date = format(
                 addDays(
@@ -215,10 +319,10 @@ export default function Index() {
                 >
                   <div>
                     <p
-                      className="float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
-                      style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
+                      className={"float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15" + (day.name ? "" : " bg-transparent text-transparent")}
+                      style={day.name ? { textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" } : {}}
                     >
-                      {day.name}
+                      <EditableText value={day.name ?? ""} onChange={setName} />
                     </p>
                     <p
                       className="float-right px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
@@ -230,7 +334,11 @@ export default function Index() {
                   <h2
                     className={`text-sm font-bold text-white ${colorInfo.labelBackground} rounded-sm text-center px-1 size`}
                   >
-                    {day.description}
+                    <EditableText
+                      value={day.description ?? ""}
+                      onChange={setDescription}
+                      placeholder="Description"
+                    />
                   </h2>
                 </div>
               );
