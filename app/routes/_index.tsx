@@ -155,37 +155,43 @@ export const EditableText = ({
   placeholder?: string;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const spanRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.select();
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.select();
     }
   }, [isEditing]);
 
   useLayoutEffect(() => {
-    if (inputRef.current && spanRef.current) {
-      inputRef.current.style.width = `${spanRef.current.offsetWidth + 8}px`;
-      inputRef.current.style.height = `${spanRef.current.offsetHeight}px`;
+    if (textareaRef.current && spanRef.current) {
+      textareaRef.current.style.width = `${spanRef.current.getBoundingClientRect().width + 8}px`;
+      textareaRef.current.style.height = `${spanRef.current.getBoundingClientRect().height}px`;
+      textareaRef.current.style.textAlign = window.getComputedStyle(
+        spanRef.current
+      ).textAlign;
     }
   }, [value, isEditing]);
 
   return (
-    <span className="relative">
+    <span className="relative inline-block">
       <span
         ref={spanRef}
         onClick={() => {
           setIsEditing(true);
         }}
-        className={(isEditing ? "whitespace-pre-wrap invisible" : "") + (value === '' ? "text-gray-400" : "")}
+        className={
+          "inline-block" +
+          (isEditing ? " whitespace-pre-wrap invisible" : "") +
+          (value === "" ? " text-gray-400" : "")
+        }
       >
-        {value ? value : placeholder ?? '\u200B\u200B\u200B\u200B'}
+        {value ? value : placeholder ?? "\u00A0\u00A0\u00A0\u00A0"}
       </span>
       {isEditing ? (
-        <input
-          ref={inputRef}
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={value}
           onChange={(event) => {
             onChange(event.target.value);
@@ -199,7 +205,7 @@ export const EditableText = ({
             }
           }}
           autoFocus
-          className="absolute top-0 -left-1 pl-1 pr-1"
+          className="inline-block absolute top-0 -left-1 pl-1 pr-1 bg-white bg-opacity-75 text-black overflow-hidden"
         />
       ) : undefined}
     </span>
@@ -263,6 +269,36 @@ export default function Index() {
                 return <div key={dayIndex} className="size-40" />;
               }
 
+              const setName = (newName: string) => {
+                const newDays = [...days];
+                newDays[
+                  weekIndex * 7 + dayIndex - numPaddingDaysBeginning
+                ].name = newName;
+                setEvents(
+                  newDays
+                    .map(
+                      (day) =>
+                        `${day.description}, ${day.color}, ${day.name}, ${day.image}`
+                    )
+                    .join("\n")
+                );
+              };
+
+              const setDescription = (newDescription: string) => {
+                const newDays = [...days];
+                newDays[
+                  weekIndex * 7 + dayIndex - numPaddingDaysBeginning
+                ].description = newDescription;
+                setEvents(
+                  newDays
+                    .map(
+                      (day) =>
+                        `${day.description}, ${day.color}, ${day.name}, ${day.image}`
+                    )
+                    .join("\n")
+                );
+              };
+
               const date = format(
                 addDays(
                   startDate,
@@ -283,10 +319,10 @@ export default function Index() {
                 >
                   <div>
                     <p
-                      className="float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
-                      style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
+                      className={"float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15" + (day.name ? "" : " bg-transparent text-transparent")}
+                      style={day.name ? { textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" } : {}}
                     >
-                      {day.name}
+                      <EditableText value={day.name ?? ""} onChange={setName} />
                     </p>
                     <p
                       className="float-right px-1 text-sm text-white bg-black rounded-sm bg-opacity-15"
@@ -298,7 +334,11 @@ export default function Index() {
                   <h2
                     className={`text-sm font-bold text-white ${colorInfo.labelBackground} rounded-sm text-center px-1 size`}
                   >
-                    {day.description}
+                    <EditableText
+                      value={day.description ?? ""}
+                      onChange={setDescription}
+                      placeholder="Description"
+                    />
                   </h2>
                 </div>
               );
