@@ -111,12 +111,10 @@ const parseEvents = (events: string): Array<Day> => {
 
 const formatEvents = (days: Array<Day>): string => {
   return days
-    .map(
-      (day) =>
-        `${day.description ?? ""}, ${day.color ?? ""}, ${day.name ?? ""}, ${
-          day.image ?? ""
-        }`
-    )
+    .map((day) => {
+      const parts = [day.description, day.color, day.name, day.image];
+      return parts.filter(part => !!part).join(", ");
+    })
     .join("\n");
 };
 
@@ -240,10 +238,7 @@ export default function Index() {
   }
 
   const parsedDays = useMemo(() => parseEvents(events), [events]);
-  const days = useMemo(
-    () => [...parsedDays, placeholderDay],
-    [parsedDays]
-  );
+  const days = useMemo(() => [...parsedDays, placeholderDay], [parsedDays]);
 
   // Add padding days to the beginning and end of the month
   let dayOfWeekStart = getDay(startDate);
