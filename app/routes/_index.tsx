@@ -81,7 +81,7 @@ const colors: Record<DayColor, ColorInfo> = {
 };
 
 type Day = {
-  type?: "blank";
+  type?: "blank" | "addPlaceholder";
   name?: string;
   description?: string;
   color?: DayColor;
@@ -95,6 +95,7 @@ Holiday, orange, https://www.travelsupermarket.com/cdn-cgi/image/f=auto,width=49
 
 const parseEvents = (events: string): Array<Day> => {
   return events
+    .trim()
     .split("\n")
     .map((event) => {
       const [description, color, imageOrName, image] = event.split(", ");
@@ -105,8 +106,16 @@ const parseEvents = (events: string): Array<Day> => {
         image: image ?? imageOrName,
         name: image ? imageOrName : undefined,
       };
+    });
+};
+
+const formatEvents = (days: Array<Day>): string => {
+  return days
+    .map((day) => {
+      const parts = [day.description, day.color, day.name, day.image];
+      return parts.filter(part => !!part).join(", ");
     })
-    .filter((event) => event.description);
+    .join("\n");
 };
 
 export const useSearchParamForInput = (
@@ -166,8 +175,12 @@ export const EditableText = ({
 
   useLayoutEffect(() => {
     if (textareaRef.current && spanRef.current) {
-      textareaRef.current.style.width = `${spanRef.current.getBoundingClientRect().width + 8}px`;
-      textareaRef.current.style.height = `${spanRef.current.getBoundingClientRect().height}px`;
+      textareaRef.current.style.width = `${
+        spanRef.current.getBoundingClientRect().width + 8
+      }px`;
+      textareaRef.current.style.height = `${
+        spanRef.current.getBoundingClientRect().height
+      }px`;
       textareaRef.current.style.textAlign = window.getComputedStyle(
         spanRef.current
       ).textAlign;
@@ -212,6 +225,8 @@ export const EditableText = ({
   );
 };
 
+const placeholderDay: Day = { type: "addPlaceholder" };
+
 export default function Index() {
   const [title, setTitle] = useSearchParamForInput("title", "Holiday Calendar");
   const [start, setStart] = useSearchParamForInput("start", defaultStartDate);
@@ -222,7 +237,8 @@ export default function Index() {
     startDate = parse(defaultStartDate, "yyyy-MM-dd", new Date());
   }
 
-  const days = useMemo(() => parseEvents(events), [events]);
+  const parsedDays = useMemo(() => parseEvents(events), [events]);
+  const days = useMemo(() => [...parsedDays, placeholderDay], [parsedDays]);
 
   // Add padding days to the beginning and end of the month
   let dayOfWeekStart = getDay(startDate);
@@ -269,34 +285,42 @@ export default function Index() {
                 return <div key={dayIndex} className="size-40" />;
               }
 
+              if (day.type === "addPlaceholder") {
+                return (
+                  <button
+                    key={dayIndex}
+                    className="size-40 rounded-md hover:bg-gray-100 text-gray-300 hover:text-black print:invisible p-1 text-center"
+                    onClick={() => {
+                      setEvents(`${events}\n, blue,`);
+                    }}
+                  >
+                    +
+                  </button>
+                );
+              }
+
               const setName = (newName: string) => {
-                const newDays = [...days];
+                const newDays = [...parsedDays];
                 newDays[
                   weekIndex * 7 + dayIndex - numPaddingDaysBeginning
                 ].name = newName;
-                setEvents(
-                  newDays
-                    .map(
-                      (day) =>
-                        `${day.description}, ${day.color}, ${day.name}, ${day.image}`
-                    )
-                    .join("\n")
-                );
+                setEvents(formatEvents(newDays));
               };
 
               const setDescription = (newDescription: string) => {
-                const newDays = [...days];
+                const newDays = [...parsedDays];
                 newDays[
                   weekIndex * 7 + dayIndex - numPaddingDaysBeginning
                 ].description = newDescription;
-                setEvents(
-                  newDays
-                    .map(
-                      (day) =>
-                        `${day.description}, ${day.color}, ${day.name}, ${day.image}`
-                    )
-                    .join("\n")
+                setEvents(formatEvents(newDays));
+              };
+
+              const deleteDay = () => {
+                const newDays = parsedDays.filter(
+                  (_, index) =>
+                    index !== weekIndex * 7 + dayIndex - numPaddingDaysBeginning
                 );
+                setEvents(formatEvents(newDays));
               };
 
               const date = format(
@@ -312,15 +336,22 @@ export default function Index() {
               return (
                 <div
                   key={dayIndex}
-                  className={`size-40 rounded-md ${colorInfo.background} border-solid border-4 ${colorInfo.border} p-1 flex flex-col justify-between bg-cover bg-center`}
+                  className={`group size-40 rounded-md ${colorInfo.background} border-solid border-4 ${colorInfo.border} p-1 flex flex-col justify-between bg-cover bg-center relative`}
                   style={{
                     backgroundImage: `url(${day.image})`,
                   }}
                 >
                   <div>
                     <p
-                      className={"float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15" + (day.name ? "" : " bg-transparent text-transparent")}
-                      style={day.name ? { textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" } : {}}
+                      className={
+                        "float-left px-1 text-sm text-white bg-black rounded-sm bg-opacity-15" +
+                        (day.name ? "" : " bg-transparent text-transparent")
+                      }
+                      style={
+                        day.name
+                          ? { textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }
+                          : {}
+                      }
                     >
                       <EditableText value={day.name ?? ""} onChange={setName} />
                     </p>
@@ -340,6 +371,12 @@ export default function Index() {
                       placeholder="Description"
                     />
                   </h2>
+                  <button
+                    onClick={deleteDay}
+                    className="opacity-0 group-hover:opacity-100 absolute top-1/2 right-1 transform -translate-y-1/2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold"
+                  >
+                    &times;
+                  </button>
                 </div>
               );
             })}
