@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { EditableText } from "~/src/EditableText";
 import { useSearchParamForInput } from "~/src/useSearchParamForInput";
 
-const PIXELS_PER_HOUR = 65;
+const PIXELS_PER_HOUR = 60;
 const NUM_HOURS_PER_DAY = 12;
 
 type EventItem = {
@@ -63,30 +63,30 @@ export default function Week() {
       .filter((event) => event !== null);
   }, [eventText]);
 
-  // Get week dates based on earliest event, always starting on a Monday
-  const getCurrentWeek = () => {
-    // Find earliest event date
-    const earliestEvent = events.reduce<EventItem | undefined>(
-      (min, event) => (!min || event.date < min.date ? event : min),
-      undefined
+  // Get week dates based on earliest and latest event
+  const getCurrentDatesRange = () => {
+    if (events.length === 0) return [];
+    // Find earliest and latest event dates
+    const sortedEvents = [...events].sort((a, b) =>
+      a.date.localeCompare(b.date)
     );
-    const eventDate = earliestEvent ? new Date(earliestEvent.date) : new Date();
+    const startDate = new Date(sortedEvents[0].date);
+    const endDate = new Date(sortedEvents[sortedEvents.length - 1].date);
 
-    // Find Monday of that week
-    const day = eventDate.getDay();
-    // getDay(): 0 (Sun) - 6 (Sat), so for Monday (1), subtract (day - 1)
-    const monday = new Date(eventDate);
-    monday.setDate(eventDate.getDate() - ((day + 6) % 7));
-
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      return date;
-    });
+    // Generate all dates from startDate to endDate inclusive
+    const dates: Date[] = [];
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
   };
 
-  const weekDates = getCurrentWeek();
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const weekDates = getCurrentDatesRange();
+  const days = weekDates.map((date) =>
+    date.toLocaleDateString(undefined, { weekday: "short" })
+  );
 
   // Convert time to minutes from midnight
   const timeToMinutes = (timeStr: string) => {
@@ -140,22 +140,25 @@ export default function Week() {
     return sorted.map((event, i) => ({
       ...event,
       _column: columns[i],
-      _overlaps: columns.filter((c, idx) => {
-        // Count how many events overlap with this one
-        const a = sorted[i];
-        const b = sorted[idx];
-        if (i === idx) return false;
-        const aStart = timeToMinutes(a.startTime);
-        const aEnd = timeToMinutes(a.endTime);
-        const bStart = timeToMinutes(b.startTime);
-        const bEnd = timeToMinutes(b.endTime);
-        return aStart < bEnd && aEnd > bStart;
-      }).length > 0,
+      _overlaps:
+        columns.filter((c, idx) => {
+          // Count how many events overlap with this one
+          const a = sorted[i];
+          const b = sorted[idx];
+          if (i === idx) return false;
+          const aStart = timeToMinutes(a.startTime);
+          const aEnd = timeToMinutes(a.endTime);
+          const bStart = timeToMinutes(b.startTime);
+          const bEnd = timeToMinutes(b.endTime);
+          return aStart < bEnd && aEnd > bStart;
+        }).length > 0,
     }));
   }
 
   // Calculate event position and height
-  const getEventStyle = (event: EventItem & { _column?: number; _overlaps?: boolean }) => {
+  const getEventStyle = (
+    event: EventItem & { _column?: number; _overlaps?: boolean }
+  ) => {
     const startMinutes = timeToMinutes(event.startTime);
     const endMinutes = timeToMinutes(event.endTime);
     const duration = endMinutes - startMinutes;
@@ -171,8 +174,8 @@ export default function Week() {
     let width = "100%";
     let left = "0";
     if (event._overlaps) {
-      width = "50%";
-      left = event._column === 1 ? "50%" : "0";
+      width = "75%";
+      left = event._column === 1 ? "25%" : "0";
     }
 
     return {
@@ -184,6 +187,7 @@ export default function Week() {
       backgroundSize: "cover",
       backgroundPosition: "center",
       backgroundBlendMode: "overlay",
+      border: `3px solid ${event.color}`,
       opacity: isQuestion ? 0.5 : 1,
     };
   };
@@ -192,85 +196,149 @@ export default function Week() {
   const hours = Array.from({ length: NUM_HOURS_PER_DAY }, (_, i) => i + 9);
 
   return (
-    <div className="min-w-[1200px]">
+    <div>
       <h1 className="m-6 text-5xl font-bold text-center text-gray-800 print:hidden">
         <EditableText value={title} onChange={setTitle} placeholder="Title" />
       </h1>
 
-      {/* Calendar Grid */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
-        {/* Header with days */}
-        <div className="grid grid-cols-7 border-b">
-          {weekDates.map((date, index) => (
-            <div
-              key={index}
-              className="p-1 bg-gray-100 border-r last:border-r-0 text-center"
-            >
-              <div className="font-semibold text-gray-700">{days[index]}</div>
-              <div className="text-sm text-gray-500">{date.getDate()}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Time slots */}
-        <div className="grid grid-cols-7 relative">
-          {/* Days columns */}
-          {weekDates.map((date, dayIndex) => {
-            // Assign columns for overlapping events
-            const dayEvents = getEventsForDate(date);
-            const eventsWithColumns = assignEventColumns(dayEvents);
-            return (
+      {/* Center the calendar grid horizontally */}
+      <div className="flex justify-center">
+        <div className="w-full max-w-[1200px] min-w-0 print:w-[1200px] bg-white rounded-lg shadow-lg overflow-hidden mb-8 print:shadow-none print:border-solid print:border-1 print:border-gray-300">
+          {/* Header with days */}
+          <div
+            className={`grid border-b min-w-0`}
+            style={{
+              gridTemplateColumns: `repeat(${weekDates.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {weekDates.map((date, index) => (
               <div
-                key={dayIndex}
-                className="border-r last:border-r-0 relative bg-white"
+                key={index}
+                className="p-1 bg-gray-100 border-r last:border-r-0 text-center"
               >
-                {/* Hour slots */}
-                {hours.map((hour) => (
-                  <div
-                    key={hour}
-                    className="border-b border-gray-100"
-                    style={{
-                      height: `${PIXELS_PER_HOUR}px`,
-                    }}
-                  ></div>
-                ))}
+                <span className="text-sm font-semibold text-gray-700">
+                  {days[index]}
+                </span>
+                <span className="ml-2 text-xs text-gray-500">{date.getDate()}</span>
+              </div>
+            ))}
+          </div>
 
-                {/* Events for this day */}
-                {eventsWithColumns.map((event) => (
-                  <div
-                    key={event.id}
-                    className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden"
-                    style={getEventStyle(event)}
-                  >
-                    <div className="p-1 h-full flex flex-col justify-start relative z-10">
-                      <div className="flex items-start justify-between gap-2">
-                        <span
-                          className="bg-black/15 text-white text-sm font-medium rounded px-1 py-0.5  whitespace-normal break-words min-w-0"
-                          style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
-                        >
-                          {event.name}
-                        </span>
-                        <span
-                          className="bg-black/15 text-white text-xs rounded px-1 py-0.5  whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
-                          style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
-                        >
-                          <TimeRange
+          {/* Time slots */}
+          <div
+            className="relative"
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${weekDates.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {/* Days columns */}
+            {weekDates.map((date, dayIndex) => {
+              // Assign columns for overlapping events
+              const dayEvents = getEventsForDate(date);
+              const eventsWithColumns = assignEventColumns(dayEvents);
+              return (
+                <div
+                  key={dayIndex}
+                  className="border-r last:border-r-0 relative bg-white"
+                >
+                  {/* Hour slots */}
+                  {hours.map((hour) => (
+                    <div
+                      key={hour}
+                      className="border-b border-gray-100"
+                      style={{
+                        height: `${PIXELS_PER_HOUR}px`,
+                      }}
+                    ></div>
+                  ))}
+
+                  {/* Events for this day */}
+                  {eventsWithColumns.map((event) => (
+                    <div
+                      key={event.id}
+                      className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden"
+                      style={getEventStyle(event)}
+                    >
+                      <div className="p-px h-full flex flex-col justify-start relative z-10">
+                      {(() => {
+                        const startMinutes = timeToMinutes(event.startTime);
+                        const endMinutes = timeToMinutes(event.endTime);
+                        const duration = endMinutes - startMinutes;
+                        if (duration > 30) {
+                        // Time range below name
+                        return (
+                          <>
+                            <span
+                            className="backdrop-blur-md text-white text-sm font-medium rounded px-2 py-px whitespace-nowrap min-w-0 inline-block overflow-hidden"
+                            style={{
+                              backgroundColor: event.color,
+                              // textShadow:
+                              // "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                              width: "fit-content",
+                              maxWidth: "100%",
+                            }}
+                            >
+                            {event.name}
+                            </span>
+                          <span
+                            className="backdrop-blur-md bg-black/30 text-white text-xs rounded px-0.5 whitespace-nowrap opacity-90 mt-px flex-shrink-0 inline-block"
+                            style={{
+                              textShadow:
+                                "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                              width: "fit-content",
+                              maxWidth: "100%",
+                            }}
+                          >
+                            <TimeRange
+                              start={event.startTime}
+                              end={event.endTime}
+                            />
+                          </span>
+                          </>
+                        );
+                        } else {
+                        // Time range to the right of name
+                        return (
+                          <div className="flex items-start justify-between gap-2">
+                          <span
+                            className="backdrop-blur-md text-white text-sm font-medium rounded px-2 py-px whitespace-nowrap min-w-0 inline-block overflow-hidden"
+                            style={{
+                              backgroundColor: event.color,
+                            // textShadow:
+                            //   "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                            }}
+                          >
+                            {event.name}
+                          </span>
+                          <span
+                            className="backdrop-blur-md bg-black/30 text-white text-xs rounded px-0.5 whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
+                            style={{
+                            textShadow:
+                              "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                            }}
+                          >
+                            <TimeRange
                             start={event.startTime}
                             end={event.endTime}
-                          />
-                        </span>
+                            />
+                          </span>
+                          </div>
+                        );
+                        }
+                      })()}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Event Input */}
-      <div className="bg-white rounded-lg shadow-lg p-6 print:hidden" >
+      <div className="bg-white rounded-lg shadow-lg p-6 print:hidden">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           Event Input
         </h2>
@@ -281,7 +349,7 @@ export default function Week() {
         <textarea
           value={eventText}
           onChange={(e) => setEventText(e.target.value)}
-          className="w-full p-4 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full p-4 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-nowrap"
           placeholder="2025-05-19,09:00,10:30,Team Meeting,#3b82f6,https://example.com/image.jpg"
           // @ts-expect-error
           style={{ fieldSizing: "content" }}
@@ -309,5 +377,5 @@ const TimeRange = ({ start, end }: { start: string; end: string }) => {
       ? `${hour}${ampm}`
       : `${hour}:${m.toString().padStart(2, "0")}${ampm}`;
   };
-  return `${formatStart(start)} - ${formatEnd(end)}`;
+  return `${formatStart(start)}-${formatEnd(end)}`;
 };
