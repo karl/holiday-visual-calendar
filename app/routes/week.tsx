@@ -111,8 +111,51 @@ export default function Week() {
     return events.filter((event) => event.date === dateStr);
   };
 
+  // Helper: detect overlaps and assign columns for a day's events
+  function assignEventColumns(events: EventItem[]) {
+    // Sort by start time
+    const sorted = [...events].sort(
+      (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+    );
+    // Each event gets a column: 0 or 1
+    const columns: number[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      let col = 0;
+      for (let j = 0; j < i; j++) {
+        // If overlap, use next column
+        const a = sorted[i];
+        const b = sorted[j];
+        const aStart = timeToMinutes(a.startTime);
+        const aEnd = timeToMinutes(a.endTime);
+        const bStart = timeToMinutes(b.startTime);
+        const bEnd = timeToMinutes(b.endTime);
+        // Overlap if start < other's end and end > other's start
+        if (aStart < bEnd && aEnd > bStart && columns[j] === col) {
+          col++;
+        }
+      }
+      columns[i] = col;
+    }
+    // Map back to original event order
+    return sorted.map((event, i) => ({
+      ...event,
+      _column: columns[i],
+      _overlaps: columns.filter((c, idx) => {
+        // Count how many events overlap with this one
+        const a = sorted[i];
+        const b = sorted[idx];
+        if (i === idx) return false;
+        const aStart = timeToMinutes(a.startTime);
+        const aEnd = timeToMinutes(a.endTime);
+        const bStart = timeToMinutes(b.startTime);
+        const bEnd = timeToMinutes(b.endTime);
+        return aStart < bEnd && aEnd > bStart;
+      }).length > 0,
+    }));
+  }
+
   // Calculate event position and height
-  const getEventStyle = (event: EventItem) => {
+  const getEventStyle = (event: EventItem & { _column?: number; _overlaps?: boolean }) => {
     const startMinutes = timeToMinutes(event.startTime);
     const endMinutes = timeToMinutes(event.endTime);
     const duration = endMinutes - startMinutes;
@@ -124,9 +167,19 @@ export default function Week() {
 
     const isQuestion = event.name.trim().endsWith("?");
 
+    // Overlap logic: if overlaps, set width 50% and left 0% or 50%
+    let width = "100%";
+    let left = "0";
+    if (event._overlaps) {
+      width = "50%";
+      left = event._column === 1 ? "50%" : "0";
+    }
+
     return {
       top: `${Math.max(0, top)}px`,
       height: `${Math.max(30, height)}px`,
+      left,
+      width,
       backgroundImage: event.imageUrl ? `url(${event.imageUrl})` : "none",
       backgroundSize: "cover",
       backgroundPosition: "center",
@@ -162,52 +215,57 @@ export default function Week() {
         {/* Time slots */}
         <div className="grid grid-cols-7 relative">
           {/* Days columns */}
-          {weekDates.map((date, dayIndex) => (
-            <div
-              key={dayIndex}
-              className="border-r last:border-r-0 relative bg-white"
-            >
-              {/* Hour slots */}
-              {hours.map((hour) => (
-                <div
-                  key={hour}
-                  className="border-b border-gray-100"
-                  style={{
-                    height: `${PIXELS_PER_HOUR}px`,
-                  }}
-                ></div>
-              ))}
+          {weekDates.map((date, dayIndex) => {
+            // Assign columns for overlapping events
+            const dayEvents = getEventsForDate(date);
+            const eventsWithColumns = assignEventColumns(dayEvents);
+            return (
+              <div
+                key={dayIndex}
+                className="border-r last:border-r-0 relative bg-white"
+              >
+                {/* Hour slots */}
+                {hours.map((hour) => (
+                  <div
+                    key={hour}
+                    className="border-b border-gray-100"
+                    style={{
+                      height: `${PIXELS_PER_HOUR}px`,
+                    }}
+                  ></div>
+                ))}
 
-              {/* Events for this day */}
-              {getEventsForDate(date).map((event) => (
-                <div
-                  key={event.id}
-                  className="absolute left-1 right-1 rounded-md border border-white/20 shadow-sm overflow-hidden"
-                  style={getEventStyle(event)}
-                >
-                  <div className="p-1 h-full flex flex-col justify-start relative z-10">
-                    <div className="flex items-start justify-between gap-2">
-                      <span
-                        className="bg-black/15 text-white text-sm font-medium rounded px-1 py-0.5  whitespace-normal break-words min-w-0"
-                        style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
-                      >
-                        {event.name}
-                      </span>
-                      <span
-                        className="bg-black/15 text-white text-xs rounded px-1 py-0.5  whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
-                        style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
-                      >
-                        <TimeRange
-                          start={event.startTime}
-                          end={event.endTime}
-                        />
-                      </span>
+                {/* Events for this day */}
+                {eventsWithColumns.map((event) => (
+                  <div
+                    key={event.id}
+                    className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden"
+                    style={getEventStyle(event)}
+                  >
+                    <div className="p-1 h-full flex flex-col justify-start relative z-10">
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className="bg-black/15 text-white text-sm font-medium rounded px-1 py-0.5  whitespace-normal break-words min-w-0"
+                          style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
+                        >
+                          {event.name}
+                        </span>
+                        <span
+                          className="bg-black/15 text-white text-xs rounded px-1 py-0.5  whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
+                          style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
+                        >
+                          <TimeRange
+                            start={event.startTime}
+                            end={event.endTime}
+                          />
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ))}
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 
