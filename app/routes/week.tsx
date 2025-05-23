@@ -1,7 +1,9 @@
 import type { MetaFunction } from "@vercel/remix";
-import React, { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { EditableText } from "~/src/EditableText";
 import { useSearchParamForInput } from "~/src/useSearchParamForInput";
+
+const PIXELS_PER_HOUR = 90;
 
 type EventItem = {
   date: string;
@@ -116,8 +118,8 @@ export default function Week() {
 
     // Calendar starts at 9 AM (540 minutes)
     const calendarStart = 9 * 60;
-    const top = ((startMinutes - calendarStart) / 60) * 60; // 60px per hour
-    const height = (duration / 60) * 60; // 60px per hour
+    const top = ((startMinutes - calendarStart) / 60) * PIXELS_PER_HOUR; 
+    const height = (duration / 60) * PIXELS_PER_HOUR;
 
     const isQuestion = event.name.trim().endsWith("?");
 
@@ -148,7 +150,7 @@ export default function Week() {
           {weekDates.map((date, index) => (
             <div
               key={index}
-              className="p-4 bg-gray-100 border-r last:border-r-0 text-center"
+              className="p-1 bg-gray-100 border-r last:border-r-0 text-center"
             >
               <div className="font-semibold text-gray-700">{days[index]}</div>
               <div className="text-sm text-gray-500">{date.getDate()}</div>
@@ -168,7 +170,10 @@ export default function Week() {
               {hours.map((hour) => (
                 <div
                   key={hour}
-                  className="h-[60px] border-b border-gray-100"
+                  className="border-b border-gray-100"
+                  style={{
+                    height: `${PIXELS_PER_HOUR}px`,
+                  }}
                 ></div>
               ))}
 
