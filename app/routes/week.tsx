@@ -178,17 +178,21 @@ export default function Week() {
       left = event._column === 1 ? "25%" : "0";
     }
 
+    // Make background semi-transparent if isQuestion
+    let backgroundImage = event.imageUrl ? `url(${event.imageUrl})` : "none";
+    let filter = undefined;
+    if (isQuestion) {
+      filter = "grayscale(0.8)";
+    }
+
     return {
       top: `${Math.max(0, top)}px`,
       height: `${Math.max(30, height)}px`,
       left,
       width,
-      backgroundImage: event.imageUrl ? `url(${event.imageUrl})` : "none",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundBlendMode: "overlay",
+      backgroundImage,
       border: `3px solid ${event.color}`,
-      opacity: isQuestion ? 0.5 : 1,
+      ...(filter ? { filter } : {}),
     };
   };
 
@@ -257,7 +261,7 @@ export default function Week() {
                   {eventsWithColumns.map((event) => (
                     <div
                       key={event.id}
-                      className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden"
+                      className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden bg-cover bg-center"
                       style={getEventStyle(event)}
                     >
                       <div className="p-px h-full flex flex-col justify-start relative z-10">
