@@ -3,7 +3,8 @@ import { useMemo } from "react";
 import { EditableText } from "~/src/EditableText";
 import { useSearchParamForInput } from "~/src/useSearchParamForInput";
 
-const PIXELS_PER_HOUR = 90;
+const PIXELS_PER_HOUR = 65;
+const NUM_HOURS_PER_DAY = 12;
 
 type EventItem = {
   date: string;
@@ -118,7 +119,7 @@ export default function Week() {
 
     // Calendar starts at 9 AM (540 minutes)
     const calendarStart = 9 * 60;
-    const top = ((startMinutes - calendarStart) / 60) * PIXELS_PER_HOUR; 
+    const top = ((startMinutes - calendarStart) / 60) * PIXELS_PER_HOUR;
     const height = (duration / 60) * PIXELS_PER_HOUR;
 
     const isQuestion = event.name.trim().endsWith("?");
@@ -135,7 +136,7 @@ export default function Week() {
   };
 
   // Generate hour labels
-  const hours = Array.from({ length: 13 }, (_, i) => i + 9); // 9 AM to 9 PM
+  const hours = Array.from({ length: NUM_HOURS_PER_DAY }, (_, i) => i + 9);
 
   return (
     <div className="min-w-[1200px]">
@@ -187,14 +188,14 @@ export default function Week() {
                   <div className="p-1 h-full flex flex-col justify-start relative z-10">
                     <div className="flex items-start justify-between gap-2">
                       <span
-                        className="bg-black/15 text-white text-s font-medium rounded px-1 py-0.5  whitespace-normal break-words min-w-0"
-                        style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
+                        className="bg-black/15 text-white text-sm font-medium rounded px-1 py-0.5  whitespace-normal break-words min-w-0"
+                        style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
                       >
                         {event.name}
                       </span>
                       <span
                         className="bg-black/15 text-white text-xs rounded px-1 py-0.5  whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
-                        style={{ textShadow: "rgba(0, 0, 0, 0.3) 0 0 3px" }}
+                        style={{ textShadow: "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px" }}
                       >
                         <TimeRange
                           start={event.startTime}
@@ -211,7 +212,7 @@ export default function Week() {
       </div>
 
       {/* Event Input */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="bg-white rounded-lg shadow-lg p-6 print:hidden" >
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           Event Input
         </h2>
@@ -222,8 +223,10 @@ export default function Week() {
         <textarea
           value={eventText}
           onChange={(e) => setEventText(e.target.value)}
-          className="w-full h-48 p-4 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full p-4 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="2025-05-19,09:00,10:30,Team Meeting,#3b82f6,https://example.com/image.jpg"
+          // @ts-expect-error
+          style={{ fieldSizing: "content" }}
         />
         <div className="mt-3 text-xs text-gray-500">
           <strong>Example colors:</strong> #3b82f6 (blue), #10b981 (green),
