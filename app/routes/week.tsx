@@ -168,8 +168,6 @@ export default function Week() {
     const top = ((startMinutes - calendarStart) / 60) * PIXELS_PER_HOUR;
     const height = (duration / 60) * PIXELS_PER_HOUR;
 
-    const isQuestion = event.name.trim().endsWith("?");
-
     // Overlap logic: if overlaps, set width 50% and left 0% or 50%
     let width = "100%";
     let left = "0";
@@ -178,21 +176,13 @@ export default function Week() {
       left = event._column === 1 ? "25%" : "0";
     }
 
-    // Make background semi-transparent if isQuestion
-    let backgroundImage = event.imageUrl ? `url(${event.imageUrl})` : "none";
-    let filter = undefined;
-    if (isQuestion) {
-      filter = "grayscale(0.8)";
-    }
-
     return {
       top: `${Math.max(0, top)}px`,
       height: `${Math.max(30, height)}px`,
       left,
       width,
-      backgroundImage,
       border: `3px solid ${event.color}`,
-      ...(filter ? { filter } : {}),
+      opacity: event.name.trim().endsWith("?") ? 0.5 : 1,
     };
   };
 
@@ -261,76 +251,90 @@ export default function Week() {
                   {eventsWithColumns.map((event) => (
                     <div
                       key={event.id}
-                      className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden bg-cover bg-center"
+                      className="absolute right-1 rounded-md border border-white/20 shadow-sm overflow-hidden"
                       style={getEventStyle(event)}
                     >
+                      {/* Background image layer */}
+                      {event.imageUrl && (
+                        <div
+                          className="absolute inset-0 w-full h-full bg-cover bg-center z-0"
+                          style={{
+                            backgroundImage: `url(${event.imageUrl})`,
+                            filter: event.name.trim().endsWith("?")
+                              ? "grayscale(1)"
+                              : undefined,
+                          }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      {/* Content layer */}
                       <div className="p-px h-full flex flex-col justify-start relative z-10">
-                      {(() => {
-                        const startMinutes = timeToMinutes(event.startTime);
-                        const endMinutes = timeToMinutes(event.endTime);
-                        const duration = endMinutes - startMinutes;
-                        if (duration > 30) {
-                        // Time range below name
-                        return (
-                          <>
-                            <span
-                            className="backdrop-blur-md text-white text-sm font-medium rounded px-2 py-px whitespace-nowrap min-w-0 inline-block overflow-hidden"
-                            style={{
-                              backgroundColor: event.color,
-                              // textShadow:
-                              // "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
-                              width: "fit-content",
-                              maxWidth: "100%",
-                            }}
-                            >
-                            {event.name}
-                            </span>
-                          <span
-                            className="backdrop-blur-md bg-black/30 text-white text-xs rounded px-0.5 whitespace-nowrap opacity-90 mt-px flex-shrink-0 inline-block"
-                            style={{
-                              textShadow:
-                                "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
-                              width: "fit-content",
-                              maxWidth: "100%",
-                            }}
-                          >
-                            <TimeRange
-                              start={event.startTime}
-                              end={event.endTime}
-                            />
-                          </span>
-                          </>
-                        );
-                        } else {
-                        // Time range to the right of name
-                        return (
-                          <div className="flex items-start justify-between gap-2">
-                          <span
-                            className="backdrop-blur-md text-white text-sm font-medium rounded px-2 py-px whitespace-nowrap min-w-0 inline-block overflow-hidden"
-                            style={{
-                              backgroundColor: event.color,
-                            // textShadow:
-                            //   "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
-                            }}
-                          >
-                            {event.name}
-                          </span>
-                          <span
-                            className="backdrop-blur-md bg-black/30 text-white text-xs rounded px-0.5 whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
-                            style={{
-                            textShadow:
-                              "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
-                            }}
-                          >
-                            <TimeRange
-                            start={event.startTime}
-                            end={event.endTime}
-                            />
-                          </span>
-                          </div>
-                        );
-                        }
-                      })()}
+                        {(() => {
+                          const startMinutes = timeToMinutes(event.startTime);
+                          const endMinutes = timeToMinutes(event.endTime);
+                          const duration = endMinutes - startMinutes;
+                          if (duration > 30) {
+                            // Time range below name
+                            return (
+                              <>
+                                <span
+                                className="backdrop-blur-md text-white text-sm font-medium rounded px-2 py-px whitespace-nowrap min-w-0 inline-block overflow-hidden"
+                                style={{
+                                  backgroundColor: event.color,
+                                  // textShadow:
+                                  // "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                                  width: "fit-content",
+                                  maxWidth: "100%",
+                                }}
+                                >
+                                {event.name}
+                                </span>
+                              <span
+                                className="backdrop-blur-md bg-black/30 text-white text-xs rounded px-0.5 whitespace-nowrap opacity-90 mt-px flex-shrink-0 inline-block"
+                                style={{
+                                  textShadow:
+                                    "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                                  width: "fit-content",
+                                  maxWidth: "100%",
+                                }}
+                              >
+                                <TimeRange
+                                  start={event.startTime}
+                                  end={event.endTime}
+                                />
+                              </span>
+                              </>
+                            );
+                          } else {
+                            // Time range to the right of name
+                            return (
+                              <div className="flex items-start justify-between gap-2">
+                              <span
+                                className="backdrop-blur-md text-white text-sm font-medium rounded px-2 py-px whitespace-nowrap min-w-0 inline-block overflow-hidden"
+                                style={{
+                                  backgroundColor: event.color,
+                                // textShadow:
+                                //   "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                                }}
+                              >
+                                {event.name}
+                              </span>
+                              <span
+                                className="backdrop-blur-md bg-black/30 text-white text-xs rounded px-0.5 whitespace-nowrap opacity-90 ml-2 flex-shrink-0"
+                                style={{
+                                textShadow:
+                                  "rgba(0, 0, 0, 1) 0 0 1px, rgba(0, 0, 0, 0.5) 0 0 5px",
+                                }}
+                              >
+                                <TimeRange
+                                start={event.startTime}
+                                end={event.endTime}
+                                />
+                              </span>
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                   ))}
