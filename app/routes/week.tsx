@@ -2,8 +2,8 @@ import type { MetaFunction } from "@vercel/remix";
 import { useMemo } from "react";
 import { EditableText } from "~/src/EditableText";
 import { useSearchParamForInput } from "~/src/useSearchParamForInput";
+import { oklch, formatCss } from "culori";
 
-const PIXELS_PER_HOUR = 60;
 const NUM_HOURS_PER_DAY = 12;
 
 type EventItem = {
@@ -155,6 +155,34 @@ export default function Week() {
     }));
   }
 
+  // Generate hour labels dynamically from earliest to latest event (rounded)
+  const { hours, calendarStartMinutes, pixelsPerHour }: { hours: number[]; calendarStartMinutes: number; pixelsPerHour: number } = useMemo(() => {
+    let hours: number[];
+    let calendarStartMinutes: number;
+    if (events.length === 0) {
+      // Default: 9am for NUM_HOURS_PER_DAY hours
+      const startHour = 9;
+      hours = Array.from({ length: NUM_HOURS_PER_DAY }, (_, i) => i + startHour);
+      calendarStartMinutes = startHour * 60;
+    } else {
+      let earliest = Infinity;
+      let latest = -Infinity;
+      for (const e of events) {
+        const s = timeToMinutes(e.startTime);
+        const t = timeToMinutes(e.endTime);
+        if (s < earliest) earliest = s;
+        if (t > latest) latest = t;
+      }
+      const startHour = Math.floor(earliest / 60);
+      const endHour = Math.ceil(latest / 60);
+      hours = Array.from({ length: Math.max(0, endHour - startHour) }, (_, i) => i + startHour);
+      calendarStartMinutes = startHour * 60;
+    }
+    const numHours = hours.length || NUM_HOURS_PER_DAY;
+    const pixelsPerHour = Math.max(60, Math.round((720 / numHours) / 10) * 10);
+    return { hours, calendarStartMinutes, pixelsPerHour };
+  }, [events]);
+
   // Calculate event position and height
   const getEventStyle = (
     event: EventItem & { _column?: number; _overlaps?: boolean }
@@ -163,12 +191,11 @@ export default function Week() {
     const endMinutes = timeToMinutes(event.endTime);
     const duration = endMinutes - startMinutes;
 
-    // Calendar starts at 9 AM (540 minutes)
-    const calendarStart = 9 * 60;
-    const top = ((startMinutes - calendarStart) / 60) * PIXELS_PER_HOUR;
-    const height = (duration / 60) * PIXELS_PER_HOUR;
+    // Calendar starts at computed earliest hour
+    const top = ((startMinutes - calendarStartMinutes) / 60) * pixelsPerHour;
+    const height = (duration / 60) * pixelsPerHour;
 
-    // Overlap logic: if overlaps, set width 50% and left 0% or 50%
+    // Overlap logic: if overlaps, set width 75% and left 0% or 25%
     let width = "100%";
     let left = "0";
     if (event._overlaps) {
@@ -176,18 +203,32 @@ export default function Week() {
       left = event._column === 1 ? "25%" : "0";
     }
 
+    // Compute less saturated and lighter oklch background color
+    let bgColor = event.color;
+    try {
+      const parsed = oklch(event.color);
+      if (parsed) {
+        // Reduce chroma (saturation) by 60% and increase lightness by 15% (max 1)
+        const lighter = Math.min(parsed.l + 0.15, 1);
+        const lessSaturatedLighter = { ...parsed, c: parsed.c * 0.4, l: lighter };
+        bgColor = formatCss(lessSaturatedLighter);
+      }
+    } catch (e) {
+      // fallback to original color
+    }
+
     return {
       top: `${Math.max(0, top)}px`,
-      height: `${Math.max(30, height)}px`,
+      height: `${Math.max(5, height)}px`,
       left,
       width,
       border: `3px solid ${event.color}`,
+      background: bgColor,
       opacity: event.name.trim().endsWith("?") ? 0.5 : 1,
     };
   };
 
-  // Generate hour labels
-  const hours = Array.from({ length: NUM_HOURS_PER_DAY }, (_, i) => i + 9);
+  // ...existing code...
 
   return (
     <div>
@@ -242,7 +283,7 @@ export default function Week() {
                       key={hour}
                       className="border-b border-gray-100"
                       style={{
-                        height: `${PIXELS_PER_HOUR}px`,
+                        height: `${pixelsPerHour}px`,
                       }}
                     ></div>
                   ))}
